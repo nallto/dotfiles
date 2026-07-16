@@ -1,0 +1,22 @@
+# ~/.config/ghostty/config — Ghostty terminal.
+# List all keys/values: `ghostty +show-config --default`
+
+# Font — pick one from `ghostty +list-fonts`.
+font-family = "Moralerspace Neon HWJPDOC"
+font-size = 16
+
+# Color theme — pick one from `ghostty +list-themes`.
+theme = "Tomorrow Night Eighties"
+
+background-opacity = 0.8
+background-blur-radius = 20
+
+unfocused-split-opacity = 0.7
+
+window-padding-x = 8
+window-padding-y = 8
+window-padding-balance = true
+
+window-save-state = always
+
+macos-option-as-alt = true

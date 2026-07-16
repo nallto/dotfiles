@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install shellcheck + zsh (apt)
+        run: sudo apt-get update && sudo apt-get install -y shellcheck zsh
+
+      - name: Install taplo (pinned release binary)
+        env:
+          TAPLO_VERSION: "0.10.0"
+        run: |
+          curl -fsSL "https://github.com/tamasfe/taplo/releases/download/${TAPLO_VERSION}/taplo-linux-x86_64.gz" \
+            | gunzip | sudo tee /usr/local/bin/taplo > /dev/null
+          sudo chmod +x /usr/local/bin/taplo
+
+      - name: Run static checks
+        run: make check

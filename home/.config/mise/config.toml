@@ -1,0 +1,11 @@
+# ~/.config/mise/config.toml — global runtime versions.
+#
+# Committed config holds RUNTIMES only:
+#   - Python is owned by uv, never mise. Do NOT add `python` here.
+#   - Reference CLIs (eza/bat/fd/ripgrep/fzf/delta/starship/zoxide) are mac=brew /
+#     Linux=mise; on Linux the bootstrap writes them to a machine-local
+#     ~/.config/mise/conf.d/linux.toml (merged by mise), never to this file — so
+#     this committed config stays runtimes-only and is never mutated by bootstrap.
+
+[tools]
+node = "lts"

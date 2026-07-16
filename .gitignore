@@ -1,0 +1,29 @@
+# NOTE: .gitignore does not honor inline comments (a # partway through a line).
+# Keep every comment on its own line, or the pattern on it is silently disabled.
+
+# === Secrets / machine-local (never commit) ===
+# config.local, ssh/config.local, etc.
+*.local
+**/config.local
+# SSH keys — never commit, public *.pub included
+id_*
+*.pem
+*.key
+# AWS credentials (the SSO token cache is unmanaged too)
+.aws/credentials
+
+# === Personal / private (local only; keep out of the public repo) ===
+# Personal runbooks/notes; never put actual secrets here. Root-anchored via leading /.
+/local/
+
+# === Tool-local settings (defense-in-depth) ===
+# Primary home is the global ignore (home/.config/git/ignore). This repo is public and
+# uses Claude Code, so we double up to cover a fresh clone before bootstrap runs.
+.claude/settings.local.json
+
+# === OS / editor cruft (defense-in-depth) ===
+# Primary home is the global ignore (home/.config/git/ignore); repeated here as a safety net.
+.DS_Store
+._*
+*.swp
+*.swo

@@ -1,0 +1,14 @@
+# ~/.config/git/ignore — global gitignore (git's default core.excludesFile).
+# Applies to EVERY repo on this machine. Use it for per-tool, machine-local files
+# that show up in any repo, so they need not be repeated in each repo's .gitignore.
+
+# Claude Code per-project local settings (permissions/paths). The shareable
+# .claude/settings.json is intentionally NOT ignored.
+**/.claude/settings.local.json
+
+# OS / editor cruft — environment-specific, so it lives here (the global ignore)
+# rather than in every repo. Individual repos may still repeat these defensively.
+.DS_Store
+._*
+*.swp
+*.swo

@@ -1,0 +1,60 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "ui_font_family": "Moralerspace Neon HWJPDOC",
+  "buffer_font_family": "Moralerspace Neon HWJPDOC",
+  "terminal": {
+    "option_as_meta": true,
+    "font_family": "Moralerspace Neon HWJPDOC",
+    "flexible": false,
+    "dock": "bottom"
+  },
+  "agent_servers": {
+    "github-copilot-cli": {
+      "default_config_options": {
+        "model": "auto",
+        "mode": "https://agentclientprotocol.com/protocol/session-modes#plan"
+      },
+      "type": "registry"
+    }
+  },
+  "agent": {
+    "flexible": false,
+    "sidebar_side": "right",
+    "default_model": {
+      "provider": "copilot_chat",
+      "model": "gpt-5-mini",
+      "enable_thinking": true,
+      "effort": "high"
+    },
+    "dock": "right",
+    "favorite_models": [],
+    "model_parameters": []
+  },
+  "git_panel": {
+    "dock": "left"
+  },
+  "project_panel": {
+    "dock": "left"
+  },
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+    "anthropic_retention": false
+  },
+  "base_keymap": "VSCode",
+  "icon_theme": "Zed (Default)",
+  "ui_font_size": 16,
+  "buffer_font_size": 16.0,
+  "theme": {
+    "mode": "dark",
+    "light": "One Light",
+    "dark": "One Dark",
+  },
+}

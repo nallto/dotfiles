@@ -1,0 +1,75 @@
+# ~/.config/git/config — shared, non-identity settings.
+# Real identity (user.name/email, signing key, per-account includeIf) lives in
+# ~/.config/git/config.local (gitignored), set up per machine. Git silently
+# ignores a missing include, so commits still work before that is configured.
+
+[init]
+	defaultBranch = main
+
+[ghq]
+	root = ~/repos            # clone destination (out of $HOME/ghq); jump with the `cdr` shell alias
+
+[core]
+	pager = delta
+	editor = vim
+	quotepath = false        # show UTF-8 paths (e.g. Japanese) literally, not \xxx
+	autocrlf = false         # never convert line endings
+	safecrlf = true          # error if a CRLF conversion would be irreversible
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true
+	line-numbers = true
+
+[merge]
+	conflictStyle = zdiff3
+
+[diff]
+	colorMoved = default
+
+[grep]
+	lineNumber = true
+
+[pull]
+	ff = only                # only fast-forward; on divergence, stop and let me choose
+
+[push]
+	default = simple
+	autoSetupRemote = true
+
+[fetch]
+	prune = false            # prune manually (git fetch --prune / git remote prune)
+
+[rerere]
+	enabled = true           # reuse recorded conflict resolutions
+
+[gpg]
+	format = ssh
+
+[alias]
+	st = status --short --branch
+	df = diff
+	ci = commit
+	br = branch
+	co = checkout
+	sw = switch
+	re = restore
+	unstage = restore --staged --
+	lg = log --graph --oneline --decorate --all
+	last = log -1 HEAD
+	changed = log --no-walk --stat
+	cp = cherry-pick
+	aliases = config --get-regexp ^alias\\.
+
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+
+# commit.gpgsign / tag.gpgsign / user.signingkey are set in config.local together
+# with the signing key, so commits do not break before signing is configured.
+[include]
+	path = config.local

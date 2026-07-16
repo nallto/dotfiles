@@ -1,0 +1,44 @@
+" ~/.config/vim/vimrc — loaded via $VIMINIT (set in .zshrc). Cross-platform, no plugins.
+
+set nocompatible
+syntax on
+filetype plugin indent on
+
+" --- Encoding (read common Japanese encodings, write UTF-8) ---
+set encoding=utf-8
+scriptencoding utf-8
+set fileencodings=utf-8,cp932,euc-jp,iso-2022-jp,latin1
+set fileformats=unix,dos,mac
+
+" --- Keep $HOME clean: relocate swap / undo / viminfo under XDG ---
+let s:cache = !empty($XDG_CACHE_HOME) ? $XDG_CACHE_HOME : expand('~/.cache')
+let s:state = !empty($XDG_STATE_HOME) ? $XDG_STATE_HOME : expand('~/.local/state')
+for s:dir in [s:cache . '/vim/swap', s:cache . '/vim/undo', s:state . '/vim']
+  if !isdirectory(s:dir) | call mkdir(s:dir, 'p', 0700) | endif
+endfor
+let &directory   = s:cache . '/vim/swap//'
+let &undodir     = s:cache . '/vim/undo//'
+let &viminfofile = s:state . '/vim/viminfo'
+set undofile
+
+" --- Editing ---
+set autoindent smartindent
+set expandtab tabstop=4 shiftwidth=4 softtabstop=4
+set backspace=indent,eol,start
+set hidden
+set autoread
+set nobackup nowritebackup
+
+" --- Search ---
+set incsearch hlsearch
+set ignorecase smartcase
+
+" --- UI ---
+set number
+set ruler showcmd
+set wildmenu
+set laststatus=2
+set scrolloff=3
+set list listchars=tab:»\ ,trail:·,nbsp:␣
+set mouse=a
+if has('termguicolors') | set termguicolors | endif

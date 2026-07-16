@@ -1,0 +1,17 @@
+{
+  "claudeCode.preferredLocation": "panel",
+  "editor.cursorBlinking": "expand",
+  "editor.cursorStyle": "line-thin",
+  "editor.fontFamily": "'Moralerspace Neon HWJPDOC', Menlo, Monaco, 'Courier New', monospace",
+  "editor.renderWhitespace": "all",
+  "editor.fontSize": 15,
+  "debug.console.fontSize": 15,
+  "markdown.preview.fontSize": 15,
+  "terminal.integrated.fontSize": 15,
+  "chat.editor.fontSize": 15,
+  "editor.bracketPairColorization.enabled": false,
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "terminal.integrated.macOptionIsMeta": true
+}
