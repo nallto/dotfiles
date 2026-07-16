@@ -20,3 +20,10 @@ window-padding-balance = true
 window-save-state = always
 
 macos-option-as-alt = true
+
+# Shift+Up/Down: scroll the viewport by one line; Shift+PageUp/Down by a page.
+# These override the default adjust_selection binds that swallowed the keys.
+keybind = shift+arrow_up=scroll_page_lines:-1
+keybind = shift+arrow_down=scroll_page_lines:1
+keybind = shift+page_up=scroll_page_up
+keybind = shift+page_down=scroll_page_down
