@@ -35,6 +35,13 @@ export VIMINIT='let $MYVIMRC="$XDG_CONFIG_HOME/vim/vimrc" | source $MYVIMRC'
 alias wget='wget --hsts-file="$XDG_DATA_HOME/wget-hsts"'
 mkdir -p "${NODE_REPL_HISTORY:h}" "${PYTHON_HISTORY:h}"   # node/python won't create these dirs
 
+# --- Default editor ---------------------------------------------------------
+# zed (GUI, Brewfile cask) — leave unset where zed is absent (Linux, ssh sessions).
+if (( $+commands[zed] )); then
+  export VISUAL='zed --wait'
+  export EDITOR='zed --wait'
+fi
+
 # --- Keybindings & line editing (history: Ctrl-R/fzf and Up/Down) ----------
 bindkey -e
 WORDCHARS=${WORDCHARS//[\/]}          # treat '/' as a word boundary
