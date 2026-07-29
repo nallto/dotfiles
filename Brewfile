@@ -55,6 +55,7 @@ brew "gzip"        # GNU gzip
 
 # --- GUI apps (Cask) ---
 cask "claude-code"          # terminal-based AI coding assistant
+cask "codex"                # OpenAI's terminal-based coding agent
 cask "discord"              # voice & text chat
 cask "ghostty"              # GPU-accelerated terminal emulator
 cask "google-chrome"        # web browser
