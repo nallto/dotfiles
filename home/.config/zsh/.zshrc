@@ -1,5 +1,5 @@
 # .zshrc — interactive shells only.
-# Layout: options -> history -> env -> keybindings -> completion -> tools -> plugins(LAST) -> aliases.
+# Layout: options -> history -> env -> keybindings -> completion -> tools -> plugins(LAST) -> functions -> aliases.
 # Fast startup: reuse $HOMEBREW_PREFIX (no `brew --prefix`) and cache compinit.
 
 # --- Shell options (navigation / globbing / misc) --------------------------
@@ -136,7 +136,8 @@ for _f in \
   }
 done
 
-# --- Aliases (kept in a separate file for readability) ---------------------
+# --- Functions and aliases (kept separate for readability) -----------------
+[[ -r "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"
 [[ -r "$ZDOTDIR/aliases.zsh" ]] && source "$ZDOTDIR/aliases.zsh"
 
 unset _f _zcompdump

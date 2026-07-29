@@ -22,11 +22,6 @@ fi
 # --- File viewing: bat (syntax-highlighted cat; plain when piped) -----------
 command -v bat >/dev/null && alias cat='bat --paging=never'
 
-# --- ghq: fuzzy-jump between repositories (ghq list -> fzf -> cd) -----------
-if command -v ghq >/dev/null && command -v fzf >/dev/null; then
-  cdr() { local d; d=$(ghq list | fzf) && cd "$(ghq root)/$d" || return; }
-fi
-
 # --- Convenience -----------------------------------------------------------
 alias mkdir='mkdir -p'   # create parent dirs as needed
 alias reload='exec zsh'  # reload the shell (re-read all startup files)
