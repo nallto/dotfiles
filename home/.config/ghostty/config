@@ -2,7 +2,7 @@
 # List all keys/values: `ghostty +show-config --default`
 
 # Font — pick one from `ghostty +list-fonts`.
-font-family = "Moralerspace Neon HWJPDOC"
+font-family = "Moralerspace Neon HW"
 font-size = 16
 
 # Color theme — pick one from `ghostty +list-themes`.

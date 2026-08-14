@@ -11,7 +11,7 @@
   "buffer_font_family": "Moralerspace Neon HWJPDOC",
   "terminal": {
     "option_as_meta": true,
-    "font_family": "Moralerspace Neon HWJPDOC",
+    "font_family": "Moralerspace Neon HW",
     "flexible": false,
     "dock": "bottom"
   },
