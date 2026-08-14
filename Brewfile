@@ -56,6 +56,7 @@ brew "gzip"        # GNU gzip
 # --- GUI apps (Cask) ---
 cask "claude-code"          # terminal-based AI coding assistant
 cask "codex"                # OpenAI's terminal-based coding agent
+cask "copilot-cli"          # GitHub Copilot coding agent in the terminal
 cask "discord"              # voice & text chat
 cask "ghostty"              # GPU-accelerated terminal emulator
 cask "google-chrome"        # web browser
@@ -66,7 +67,8 @@ cask "visual-studio-code"   # code editor
 cask "zed"                  # code editor
 
 # --- Fonts (Cask) ---
-cask "font-moralerspace-hw-jpdoc"  # Moralerspace HW JPDOC — JP coding font (Monaspace + IBM Plex Sans JP)
+cask "font-moralerspace-hw"        # Moralerspace HW — JP coding font (Monaspace + IBM Plex Sans JP)
+cask "font-moralerspace-hw-jpdoc"  # Moralerspace HW JPDOC — JPDOC variant (JP-doc-tuned glyphs)
 cask "font-udev-gothic"      # UDEV Gothic — JP coding font (JetBrains Mono + BIZ UDGothic)
 cask "font-udev-gothic-hs"   # UDEV Gothic HS variant
 cask "font-udev-gothic-nf"   # UDEV Gothic + Nerd Font glyphs

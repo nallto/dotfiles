@@ -87,6 +87,8 @@ lazygit = "latest"
 sd = "latest"
 taplo = "latest"
 "aqua:dbrgn/tealdeer" = "latest"   # tealdeer has no mise short-name; use the full aqua id (not tlrc, a different tldr client)
+codex = "latest"                   # OpenAI coding agent (Cask on macOS; not in apt -> mise, aqua:openai/codex)
+copilot-cli = "latest"             # GitHub Copilot CLI (Cask on macOS; not in apt -> mise, aqua:github/copilot-cli)
 EOF
   mise install || true
   mise exec -- corepack enable pnpm 2>/dev/null || true
