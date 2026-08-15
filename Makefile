@@ -5,7 +5,7 @@
 SHELL_FILES := bootstrap.sh dotman.sh reference/claude/statusline-command.sh
 BASH_FILES  := bootstrap.sh dotman.sh
 TOML_FILES  := home/.config/starship.toml home/.config/mise/config.toml
-ZSH_FILES   := home/.zshenv home/.config/zsh/.zshrc home/.config/zsh/.zprofile home/.config/zsh/aliases.zsh
+ZSH_FILES   := home/.zshenv home/.config/zsh/.zshrc home/.config/zsh/.zprofile home/.config/zsh/aliases.zsh home/.config/zsh/guards.zsh
 
 .PHONY: help check lint fmt fmt-check test dry-run
 

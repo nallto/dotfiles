@@ -140,4 +140,7 @@ done
 [[ -r "$ZDOTDIR/functions.zsh" ]] && source "$ZDOTDIR/functions.zsh"
 [[ -r "$ZDOTDIR/aliases.zsh" ]] && source "$ZDOTDIR/aliases.zsh"
 
+# --- Guardrails (interactive tripwires; sourced last so `mise` is activated) --
+[[ -r "$ZDOTDIR/guards.zsh" ]] && source "$ZDOTDIR/guards.zsh"
+
 unset _f _zcompdump
