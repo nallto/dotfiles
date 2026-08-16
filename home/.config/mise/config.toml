@@ -1,11 +1,32 @@
-# ~/.config/mise/config.toml — global runtime versions.
-#
-# Committed config holds RUNTIMES only:
+# ~/.config/mise/config.toml — global runtimes + cross-OS CLIs that have no
+# brew/apt home. Hand-written only; bootstrap never mutates this file:
 #   - Python is owned by uv, never mise. Do NOT add `python` here.
 #   - Reference CLIs (eza/bat/fd/ripgrep/fzf/delta/starship/zoxide) are mac=brew /
 #     Linux=mise; on Linux the bootstrap writes them to a machine-local
 #     ~/.config/mise/conf.d/linux.toml (merged by mise), never to this file — so
-#     this committed config stays runtimes-only and is never mutated by bootstrap.
+#     everything here stays hand-written and is never mutated by bootstrap.
 
 [tools]
 node = "lts"
+
+# --- cross-OS CLIs with no brew/apt home (`mise up` to update) ---
+# Browser terminal grid for running AI coding agents in parallel (tmux-backed).
+# No brew formula/cask, no apt package, not in the mise registry -> npm backend.
+#
+# TEMPORARY trust-policy exclude — remove once cytoscape 3.34.2 is published.
+# cytoscape is transitive (mulmoterminal -> @mulmoclaude/markdown-plugin ->
+# mermaid -> cytoscape "^3.33.3"), and 3.34.1 trips mise's no-downgrade check:
+# 3.33.4/3.34.0 were published by CI with SLSA provenance, 3.34.1 was
+# hand-published by the lead maintainer after their trusted-publishing workflow
+# broke (cytoscape/cytoscape.js#3511, where they confirm 3.34.2 ships the same
+# source through the fixed workflow).
+# Verified by hand before adding this: every file in the cytoscape 3.34.1 npm
+# tarball is byte-identical to git tag v3.34.1 (src/, all five dist/ bundles,
+# package.json); the only extras are three inert untracked JSON files swept in
+# from the maintainer's laptop; and cytoscape declares no install/preinstall/
+# postinstall script (mulmoterminal itself does have one, unrelated to this).
+# The exclude is an exact version, so it stops applying the moment the tree
+# resolves to anything else — nothing here is pinned to 3.34.1.
+"npm:mulmoterminal" = { version = "latest", trust_policy_excludes = [
+  "cytoscape@3.34.1",
+] }

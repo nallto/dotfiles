@@ -29,6 +29,8 @@ This file is the single source of truth for these conventions — the ground rul
 - Shared-config CLIs (eza/bat/fd/ripgrep/fzf/delta/starship/zoxide) = **mac: brew / Linux: mise**.
   When adding one, reflect it in **both** the Brewfile and the mise config.
 - One-off CLIs (jq/gh/ghq/vim/tig/cloc, etc.) = **mac: brew / Linux: apt** (mise if apt lacks it).
+- npm-only CLIs (no brew formula/cask, no apt package) = **mise's `npm:` backend**, hand-written in
+  the committed `config.toml` — never `npm i -g` (`guards.zsh` blocks it).
 - **shellcheck = mac: brew / Linux: mise / CI: pinned release binary** — deliberately *not* apt,
   whose 0.9 disagrees with brew's 0.11 about which warnings to emit. A verification tool that
   answers differently per machine makes `make check` a lie, so its version is pinned once in the
