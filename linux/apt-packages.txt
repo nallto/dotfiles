@@ -10,3 +10,4 @@ shellcheck
 build-essential
 git-lfs
 btop
+tmux

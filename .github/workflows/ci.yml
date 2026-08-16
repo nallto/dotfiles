@@ -18,8 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Install shellcheck + zsh (apt)
-        run: sudo apt-get update && sudo apt-get install -y shellcheck zsh
+      - name: Install shellcheck + zsh + tmux (apt)
+        run: sudo apt-get update && sudo apt-get install -y shellcheck zsh tmux
 
       - name: Install taplo (pinned release binary)
         env:
