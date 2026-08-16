@@ -14,7 +14,7 @@ SHELLCHECK_VERSION := 0.11.0
 SHELL_FILES := bootstrap.sh dotman.sh reference/claude/statusline-command.sh home/.local/bin/launchman
 BASH_FILES  := bootstrap.sh dotman.sh home/.local/bin/launchman
 TOML_FILES  := home/.config/starship.toml home/.config/mise/config.toml
-ZSH_FILES   := home/.zshenv home/.config/zsh/.zshrc home/.config/zsh/.zprofile home/.config/zsh/aliases.zsh home/.config/zsh/guards.zsh
+ZSH_FILES   := home/.zshenv home/.config/zsh/.zshrc home/.config/zsh/.zprofile home/.config/zsh/aliases.zsh home/.config/zsh/functions.zsh home/.config/zsh/guards.zsh
 TMUX_FILES  := home/.config/tmux/tmux.conf
 
 .PHONY: help check lint fmt fmt-check test dry-run shellcheck-version
