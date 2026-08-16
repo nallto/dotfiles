@@ -17,6 +17,7 @@ brew "shellcheck"  # shell script static analysis (make lint / CI)
 brew "taplo"       # TOML formatter / linter (starship.toml, mise config, ...)
 brew "tealdeer"    # `tldr` client — quick command examples (run `tldr --update`)
 brew "tig"         # text-mode interface for git
+brew "tmux"        # terminal multiplexer (config: home/.config/tmux/tmux.conf)
 brew "vim"         # editor
 brew "watch"       # run a command periodically, fullscreen
 brew "wget"        # download files over HTTP/HTTPS/FTP
