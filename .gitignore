@@ -5,6 +5,10 @@
 # config.local, ssh/config.local, etc.
 *.local
 **/config.local
+# `*.local` matches directories too, so it also swallows home/.local — the XDG data/state/bin
+# tree, which is mirror-able config, not a secret. Re-include just that directory; files named
+# foo.local inside it still match the rule above, so the secrets guardrail is untouched.
+!home/.local/
 # SSH keys — never commit, public *.pub included
 id_*
 *.pem
