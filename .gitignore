@@ -15,6 +15,10 @@ id_*
 *.key
 # AWS credentials (the SSO token cache is unmanaged too)
 .aws/credentials
+# Environment files. No `!.env.example` escape hatch on purpose: a negation inside a secrets
+# rule is a hole, and `git add -f` covers the rare file that genuinely wants committing.
+.env
+.env.*
 
 # === Personal / private (local only; keep out of the public repo) ===
 # Personal runbooks/notes; never put actual secrets here. Root-anchored via leading /.
