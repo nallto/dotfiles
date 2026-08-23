@@ -2,8 +2,8 @@
 # way locally (`make check`) and in CI (.github/workflows/ci.yml calls `make check`).
 # Tools: shellcheck (mac=brew / Linux=apt), taplo (mac=brew / Linux=mise), zsh, bash, tmux.
 
-SHELL_FILES := bootstrap.sh dotman.sh reference/claude/statusline-command.sh
-BASH_FILES  := bootstrap.sh dotman.sh
+SHELL_FILES := bootstrap.sh dotman.sh reference/claude/statusline-command.sh home/.local/bin/launchman
+BASH_FILES  := bootstrap.sh dotman.sh home/.local/bin/launchman
 TOML_FILES  := home/.config/starship.toml home/.config/mise/config.toml
 ZSH_FILES   := home/.zshenv home/.config/zsh/.zshrc home/.config/zsh/.zprofile home/.config/zsh/aliases.zsh home/.config/zsh/guards.zsh
 TMUX_FILES  := home/.config/tmux/tmux.conf

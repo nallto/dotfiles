@@ -1,0 +1,528 @@
+#!/usr/bin/env bash
+#
+# launchman — manage this user's launchd agents (macOS), the way dotman manages dotfiles.
+#
+# launchd keeps three ORTHOGONAL pieces of state, which is where it trips people up:
+#
+#   registered   register / unregister    does launchd know the service?   this login session
+#   running      start / stop / restart   is a process alive right now?    momentary
+#   allowed      enable / disable         may it be loaded at all?         persists across reboots
+#
+# `stop` keeps the registration, so a KeepAlive/StartInterval job comes straight back, and
+# `disable` does not stop a process that is already running. `list` prints all three side by
+# side so the two never get mistaken for each other.
+#
+# Scope: launch AGENTS in the login domain of the current user (gui/$UID). Daemons live in the
+# system domain and need root, so they are out of scope — launchman must never be a reason to
+# type sudo. launchd only: cron and other schedulers are invisible here.
+#
+set -euo pipefail
+
+readonly PROG="${0##*/}"
+UID_NUM="$(id -u)"
+readonly UID_NUM
+readonly DOMAIN="gui/$UID_NUM"
+
+readonly DIR_USER="$HOME/Library/LaunchAgents"
+readonly DIR_ADMIN="/Library/LaunchAgents"
+readonly DIR_SYSTEM="/System/Library/LaunchAgents"
+
+# BSD stat, spelled absolutely on purpose: this repo puts GNU coreutils on PATH ahead of the
+# system tools on macOS, and GNU stat takes -c where BSD stat takes -f. The same trap as the
+# GNU/BSD `date` split. Everything else here sticks to flags both implementations share.
+readonly STAT=/usr/bin/stat
+
+TMP=""   # lazily created by init_caches(); removed by the EXIT trap
+
+die() { printf '%s: %s\n' "$PROG" "$*" >&2; exit 1; }
+note() { printf '%s\n' "$*"; }
+
+usage() {
+  cat <<'EOF'
+launchman — manage this user's launchd agents (macOS, domain gui/$UID)
+
+Usage:
+  launchman list [--all] [--apple]        list agents (default: ~/Library/LaunchAgents only)
+  launchman register <plist>              symlink it into ~/Library/LaunchAgents, then bootstrap
+  launchman unregister <label> [--keep]   bootout, then remove the symlink launchman created
+  launchman reload <label>                bootout + bootstrap (needed after editing a plist)
+  launchman start <label>                 run now, ignoring the plist's launch conditions
+  launchman stop <label>                  SIGTERM the running process (stays registered)
+  launchman restart <label>               kill the running instance, then start it again
+  launchman enable <label>                allow loading (undoes disable)
+  launchman disable <label>               forbid loading; persists across reboots
+  launchman status <label> [--raw]        state, pid, plist path, last exit code
+  launchman log <label> [-f]              tail StandardOutPath / StandardErrorPath
+  launchman path <label>                  print the plist path
+  launchman edit <label>                  open the plist in $EDITOR
+
+Three orthogonal layers — `list` shows all three, and mixing them up is the usual bug:
+
+  registered   register / unregister    does launchd know the service?   this login session
+  running      start / stop / restart   is a process alive right now?    momentary
+  allowed      enable / disable         may it be loaded at all?         persists across reboots
+
+  `stop` keeps the registration: a KeepAlive job restarts at once, a StartInterval job comes
+  back on its next tick. To silence one for good, `disable` it.
+  `disable` does not kill a running process; it only forbids future loads.
+  Editing a plist changes nothing until `reload` — launchd holds its own copy of the definition.
+  Surviving logout is decided by the plist living in ~/Library/LaunchAgents, which is what
+  `register` arranges: launchd only re-reads the standard directories at login.
+
+Covers launchd only — cron and other schedulers are not shown.
+EOF
+}
+
+# --- small helpers ---------------------------------------------------------
+
+# Abbreviate $HOME back to ~ so the tables stay narrow enough to read.
+tilde() {
+  case "$1" in
+    "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+# A plist's label is the authority, NOT its file name — they are allowed to disagree, and in
+# the wild they do (some shipped plists are an empty <dict/> with no Label key at all). Fall
+# back to the file name only when the key is missing.
+label_of() {
+  local f="$1" label
+  label="$(plutil -extract Label raw -o - "$f" 2>/dev/null)" || label=""
+  if [ -z "$label" ]; then
+    label="${f##*/}"
+    label="${label%.plist}"
+  fi
+  printf '%s' "$label"
+}
+
+plist_key() { plutil -extract "$2" raw -o - "$1" 2>/dev/null || true; }
+
+# Absolute path without relying on `realpath`/`readlink -f` (BSD vs GNU again).
+abspath() {
+  local d b
+  d="$(dirname -- "$1")"
+  b="$(basename -- "$1")"
+  d="$(cd -- "$d" && pwd -P)" || die "cannot resolve directory of: $1"
+  printf '%s/%s' "$d" "$b"
+}
+
+init_caches() {
+  [ -n "$TMP" ] && return 0
+  TMP="$(mktemp -d "${TMPDIR:-/tmp}/launchman.XXXXXX")"
+  trap 'rm -rf "$TMP"' EXIT
+
+  # PID \t last-exit-status \t label, for everything in this user's domain.
+  launchctl list > "$TMP/live" 2>/dev/null || : > "$TMP/live"
+
+  # Labels with a persistent "disabled" override. Note the database keeps entries that were
+  # disabled and then re-enabled, printing them as "=> enabled" — so match only "=> disabled".
+  launchctl print-disabled "$DOMAIN" 2>/dev/null \
+    | sed -n 's/^[[:space:]]*"\(.*\)" => disabled$/\1/p' > "$TMP/disabled" || : > "$TMP/disabled"
+}
+
+live_field() {   # $1=label  $2=1 for pid, 2 for last exit status
+  awk -F'\t' -v l="$1" -v f="$2" 'NR>1 && $3==l { print $f; exit }' "$TMP/live"
+}
+
+state_of() {
+  local pid
+  pid="$(live_field "$1" 1)"
+  if   [ -z "$pid" ];    then printf 'unregistered'   # not in the domain at all
+  elif [ "$pid" = "-" ]; then printf 'loaded'         # registered, no process right now
+  else                        printf 'running'
+  fi
+}
+
+enabled_of() {
+  if grep -qxF "$1" "$TMP/disabled"; then printf 'no'; else printf 'yes'; fi
+}
+
+# Ask launchd where it read a service from. Beware: this is the RESOLVED path — register a
+# symlink and launchd reports the link's target, never the link. That is why list classifies
+# by the directory the FILE was found in and only falls back to this for domain-only entries.
+domain_path() {
+  launchctl print "$DOMAIN/$1" 2>/dev/null | awk -F' = ' '/^\tpath = /{ print $2; exit }' || true
+}
+
+# com.apple.* is Apple's own machinery (hundreds of entries under /System/Library/LaunchAgents)
+# and application.* is a running GUI app registered by runningboardd, not a scheduled agent.
+# Neither is anything you manage, so both stay hidden until --apple asks for them.
+is_noise() {
+  case "$1" in
+    com.apple.*|application.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+classify_path() {
+  case "$1" in
+    "") printf 'none' ;;
+    "$DIR_USER"/*) printf 'user' ;;
+    "$DIR_ADMIN"/*) printf 'admin' ;;
+    "$DIR_SYSTEM"/*) printf 'system' ;;
+    *.app/Contents/*) printf 'app' ;;
+    *) printf 'session' ;;   # bootstrapped from a non-standard path: gone after logout
+  esac
+}
+
+# Find the plist for a label: the standard directories first (that is the copy a human edits),
+# then whatever launchd itself remembers.
+plist_of_label() {
+  local label="$1" d f
+  for d in "$DIR_USER" "$DIR_ADMIN" "$DIR_SYSTEM"; do
+    [ -d "$d" ] || continue
+    if [ -e "$d/$label.plist" ]; then printf '%s' "$d/$label.plist"; return 0; fi
+    for f in "$d"/*.plist; do
+      [ -e "$f" ] || continue
+      if [ "$(label_of "$f")" = "$label" ]; then printf '%s' "$f"; return 0; fi
+    done
+  done
+  domain_path "$label"
+}
+
+# Arity check for the dispatch table: no silently ignored extras, because a typo'd flag should
+# be an error rather than a no-op. Written as plain `||` tests, never `A && B || C` — shellcheck
+# 0.9 (what Ubuntu ships, so what CI runs) flags that shape as SC2015 while 0.11 does not.
+want_args() {   # min max usage-message -- then the real arguments
+  local min="$1" max="$2" msg="$3"
+  shift 3
+  [ $# -ge "$min" ] || die "$msg"
+  [ $# -le "$max" ] || die "$msg"
+  [ -n "${1:-}" ] || die "$msg"
+}
+
+# --- list ------------------------------------------------------------------
+
+cmd_list() {
+  local show_all=0 show_apple=0 a
+  for a in "$@"; do
+    case "$a" in
+      --all) show_all=1 ;;
+      --apple) show_apple=1; show_all=1 ;;
+      *) die "list: unknown option: $a" ;;
+    esac
+  done
+  init_caches
+
+  local rows="$TMP/rows" d src f label
+  : > "$rows"
+
+  # Pass 1 — files on disk. Authoritative for the source column.
+  for d in "$DIR_USER" "$DIR_ADMIN" "$DIR_SYSTEM"; do
+    case "$d" in
+      "$DIR_USER") src="user" ;;
+      "$DIR_ADMIN") src="admin" ;;
+      *) src="system" ;;
+    esac
+    [ "$show_all" -eq 1 ] || [ "$d" = "$DIR_USER" ] || continue
+    [ -d "$d" ] || continue
+    for f in "$d"/*.plist; do
+      [ -e "$f" ] || continue      # no nullglob in bash 3.2: an unmatched glob stays literal
+      label="$(label_of "$f")"
+      if [ "$show_apple" -eq 0 ] && is_noise "$label"; then continue; fi
+      printf '%s\t%s\t%s\n' "$label" "$src" "$f" >> "$rows"
+    done
+  done
+
+  # Pass 2 — services registered in the domain with no file in the directories above.
+  if [ "$show_all" -eq 1 ]; then
+    local live_label path
+    while IFS= read -r live_label; do
+      [ -n "$live_label" ] || continue
+      if [ "$show_apple" -eq 0 ] && is_noise "$live_label"; then continue; fi
+      # One process, no pipe: `cut | grep -q` lets grep exit early, and the SIGPIPE'd cut
+      # then trips pipefail, which would read as "no match" and duplicate the row.
+      awk -F'\t' -v l="$live_label" '$1 == l { found = 1; exit } END { exit !found }' "$rows" && continue
+      path="$(domain_path "$live_label")"
+      printf '%s\t%s\t%s\n' "$live_label" "$(classify_path "$path")" "$path" >> "$rows"
+    done < <(awk -F'\t' 'NR>1 { print $3 }' "$TMP/live")
+  fi
+
+  if [ ! -s "$rows" ]; then
+    note "no launch agents in $(tilde "$DIR_USER")"
+    return 0
+  fi
+
+  local fmt exit_status pid
+  if [ "$show_all" -eq 1 ]; then
+    fmt='%-38s %-12s %-7s %-6s %-7s %-7s %s\n'
+    # shellcheck disable=SC2059  # $fmt is our own format string, not user input
+    printf "$fmt" LABEL STATE PID EXIT ENABLED SOURCE PLIST
+  else
+    fmt='%-38s %-12s %-7s %-6s %-7s %s\n'
+    # shellcheck disable=SC2059
+    printf "$fmt" LABEL STATE PID EXIT ENABLED LINK
+  fi
+
+  while IFS=$'\t' read -r label src f; do
+    pid="$(live_field "$label" 1)"
+    exit_status="$(live_field "$label" 2)"
+    [ -n "$pid" ] || pid='-'
+    [ -n "$exit_status" ] || exit_status='-'
+    if [ "$show_all" -eq 1 ]; then
+      # shellcheck disable=SC2059
+      printf "$fmt" "$label" "$(state_of "$label")" "$pid" "$exit_status" \
+        "$(enabled_of "$label")" "$src" "$([ -n "$f" ] && tilde "$f" || printf '-')"
+    else
+      local link
+      if [ -L "$f" ]; then link="-> $(tilde "$(readlink "$f")")"; else link="(real file)"; fi
+      # shellcheck disable=SC2059
+      printf "$fmt" "$label" "$(state_of "$label")" "$pid" "$exit_status" \
+        "$(enabled_of "$label")" "$link"
+    fi
+  done < <(sort -f "$rows")
+
+  if [ "$show_all" -eq 1 ]; then
+    cat <<EOF
+
+source:  user=$(tilde "$DIR_USER")  admin=$DIR_ADMIN  system=$DIR_SYSTEM
+         app=registered from inside an .app bundle
+         session=loaded from a non-standard path — it will be gone after you log out
+         none=no plist file (the service was submitted by another process)
+EOF
+  fi
+}
+
+# --- registration ----------------------------------------------------------
+
+cmd_register() {
+  local src="$1" label link owner mode relinked=0 already=0 backup=""
+  [ -f "$src" ] || die "no such plist: $src"
+  plutil -lint "$src" >/dev/null || die "not a valid plist: $src"
+  src="$(abspath "$src")"
+
+  label="$(plutil -extract Label raw -o - "$src" 2>/dev/null)" || label=""
+  [ -n "$label" ] || die "plist has no Label key, so launchd has no name to manage it by: $src"
+
+  # launchd refuses a plist it does not trust: it must belong to the user loading it and must
+  # not be writable by group or other (launchctl(1) spells this out — a writable plist would
+  # let anyone else choose which executable gets launched). Report it, never silently chmod:
+  # changing someone's file modes behind their back is not this tool's call.
+  owner="$($STAT -f '%u' "$src")"
+  mode="$($STAT -f '%Lp' "$src")"
+  [ "$owner" = "$UID_NUM" ] || die "plist must be owned by you (uid $UID_NUM), but uid $owner owns it: $src"
+  # Test the bits, not the spelling: 0$mode reads the octal mode, 022 is group-write + other-write.
+  if [ $(( 0$mode & 022 )) -ne 0 ]; then
+    die "plist is group/world writable (mode $mode); launchd will refuse it. Fix with:
+  chmod go-w $src"
+  fi
+
+  mkdir -p "$DIR_USER"
+  link="$DIR_USER/$label.plist"   # named after the LABEL, so the two can never drift apart
+  launchctl print "$DOMAIN/$label" >/dev/null 2>&1 && already=1
+
+  if [ "$src" = "$link" ]; then
+    note "already a real file in $(tilde "$DIR_USER") — bootstrapping it in place"
+  elif [ -L "$link" ] && [ "$(readlink "$link")" = "$src" ]; then
+    note "link already correct: $(tilde "$link") -> $(tilde "$src")"
+  else
+    if [ -e "$link" ] || [ -L "$link" ]; then
+      local backup_dir
+      # Deliberately NOT a *.bak next to the original the way dotman backs files up in place:
+      # launchd reads everything it finds in ~/Library/LaunchAgents at login, so a leftover
+      # foo.plist.bak.20260101 sitting there is one more file for it to trip over.
+      backup_dir="${XDG_STATE_HOME:-$HOME/.local/state}/launchman"
+      mkdir -p "$backup_dir"
+      local stamp n=1
+      stamp="$(date +%Y%m%d%H%M%S)"
+      backup="$backup_dir/$label.plist.bak.$stamp"
+      # Two registers within the same second must not overwrite each other's backup.
+      # -L as well as -e: what we move here is usually a symlink, and once its target is gone
+      # `[ -e ]` reports false for it — which would silently overwrite an earlier backup.
+      while [ -e "$backup" ] || [ -L "$backup" ]; do
+        backup="$backup_dir/$label.plist.bak.$stamp-$n"; n=$((n + 1))
+      done
+      mv "$link" "$backup"
+      note "moved the previous $(tilde "$link") to $(tilde "$backup")"
+    fi
+    ln -s "$src" "$link"
+    relinked=1
+    note "linked $(tilde "$link") -> $(tilde "$src")"
+  fi
+
+  # Bootstrapping a label launchd already knows fails with a bare "5: Input/output error",
+  # so decide up front: same definition -> nothing to do; new one -> drop the old first.
+  if [ "$already" -eq 1 ]; then
+    if [ "$relinked" -eq 0 ]; then
+      note "$label is already registered — nothing more to do"
+      note "edited the plist since? run: $PROG reload $label"
+      return 0
+    fi
+    launchctl bootout "$DOMAIN/$label" 2>/dev/null || true
+    note "dropped the definition launchd was holding for $label"
+  fi
+
+  if ! launchctl bootstrap "$DOMAIN" "$link"; then
+    # Undo our own mess. A link launchd just rejected must not be left sitting in a directory
+    # it re-reads at every login, and the file we displaced has to come back.
+    if [ "$relinked" -eq 1 ]; then
+      # Never let a failing cleanup swallow the diagnosis below: report and carry on to die.
+      rm -f "$link" || note "could not remove $(tilde "$link") — remove it by hand"
+      note "removed $(tilde "$link") again"
+      if [ -n "$backup" ]; then
+        if mv "$backup" "$link"; then
+          note "restored the previous $(tilde "$link")"
+        else
+          note "could not restore $(tilde "$backup") — move it back by hand"
+        fi
+      fi
+    fi
+    # The bootout above cannot be undone: whatever launchd used to hold for this label is gone.
+    if [ "$already" -eq 1 ]; then
+      note "$label is no longer registered — re-run $PROG register once the plist is fixed"
+    fi
+    die "bootstrap failed. If it says the service is disabled, run: $PROG enable $label"
+  fi
+  note "registered $label"
+  note "note: launchd resolves the link, so \`status\` reports the target path, not the link."
+}
+
+cmd_unregister() {
+  local label="$1" keep=0 link
+  shift || true
+  case "${1:-}" in
+    --keep) keep=1 ;;
+    "") ;;
+    *) die "unregister: unknown option: $1" ;;
+  esac
+
+  if launchctl bootout "$DOMAIN/$label" 2>/dev/null; then
+    note "unregistered $label"
+  else
+    note "$label was not registered in $DOMAIN"
+  fi
+
+  link="$DIR_USER/$label.plist"
+  if [ "$keep" -eq 1 ]; then
+    note "kept $(tilde "$link") (--keep)"
+  elif [ -L "$link" ]; then
+    rm "$link"
+    note "removed link $(tilde "$link")"
+  elif [ -e "$link" ]; then
+    # Only ever remove what we created. A real file there is somebody else's property.
+    note "left $(tilde "$link") alone: it is a real file, not a link launchman made"
+  else
+    note "no $(tilde "$link") to remove"
+  fi
+}
+
+cmd_reload() {
+  local label="$1" f
+  f="$(plist_of_label "$label")"
+  [ -n "$f" ] || die "cannot find a plist for $label"
+  launchctl bootout "$DOMAIN/$label" 2>/dev/null || true
+  launchctl bootstrap "$DOMAIN" "$f" || die "bootstrap failed for $(tilde "$f")"
+  note "reloaded $label from $(tilde "$f")"
+}
+
+# --- process control -------------------------------------------------------
+
+# kickstart -p prints the pid of the new process — or of the already-running one, which is
+# why `start` reports "running" rather than claiming it did the starting.
+cmd_start() {
+  local pid
+  pid="$(launchctl kickstart -p "$DOMAIN/$1")" || die "cannot start $1 (is it registered?)"
+  note "$1 running (pid $pid)"
+}
+
+cmd_restart() {
+  local pid
+  pid="$(launchctl kickstart -kp "$DOMAIN/$1")" || die "cannot restart $1 (is it registered?)"
+  note "restarted $1 (pid $pid)"
+}
+
+cmd_stop() {
+  launchctl kill TERM "$DOMAIN/$1" || die "$1 is not running (or not registered)"
+  note "sent SIGTERM to $1 — it stays registered, so KeepAlive/StartInterval will bring it back"
+}
+
+cmd_enable() {
+  launchctl enable "$DOMAIN/$1"
+  note "$1 may be loaded again (persists across reboots); it is not started by this"
+}
+
+cmd_disable() {
+  launchctl disable "$DOMAIN/$1"
+  note "$1 will not be loaded again (persists across reboots)"
+  note "this does NOT stop a running process — use \`$PROG stop $1\` or \`$PROG unregister $1\`"
+}
+
+# --- inspection ------------------------------------------------------------
+
+cmd_status() {
+  local label="$1" raw="${2:-}" out
+  case "$raw" in "" | --raw) ;; *) die "status: unknown option: $raw" ;; esac
+  if ! out="$(launchctl print "$DOMAIN/$label" 2>&1)"; then
+    printf '%s\n' "$out" >&2
+    die "$label is not registered in $DOMAIN"
+  fi
+  if [ "$raw" = "--raw" ]; then printf '%s\n' "$out"; return 0; fi
+  printf '%s\n' "$out" | awk -F' = ' '
+    /^\t(state|pid|path|program|runs|last exit code) = / {
+      key = $1; sub(/^\t/, "", key); printf "%-15s %s\n", key ":", $2
+    }'
+  init_caches
+  printf '%-15s %s\n' "enabled:" "$(enabled_of "$label")"
+}
+
+cmd_log() {
+  local label="$1" follow="${2:-}" f out err args
+  case "$follow" in "" | -f) ;; *) die "log: unknown option: $follow" ;; esac
+  f="$(plist_of_label "$label")"
+  [ -n "$f" ] || die "cannot find a plist for $label"
+  out="$(plist_key "$f" StandardOutPath)"
+  err="$(plist_key "$f" StandardErrorPath)"
+  if [ -z "$out" ] && [ -z "$err" ]; then
+    die "$label writes no StandardOutPath/StandardErrorPath. Add them to $(tilde "$f"), or read
+the unified log:  log show --last 1h --predicate 'process == \"<program name>\"'"
+  fi
+  args=""
+  [ "$follow" = "-f" ] && args="-f"
+  [ "$out" = "$err" ] && err=""
+  # shellcheck disable=SC2086  # $args is either empty or the single flag -f
+  tail -n 50 $args ${out:+"$out"} ${err:+"$err"}
+}
+
+cmd_path() {
+  local f
+  f="$(plist_of_label "$1")"
+  [ -n "$f" ] || die "cannot find a plist for $1"
+  printf '%s\n' "$f"
+}
+
+cmd_edit() {
+  local f
+  f="$(plist_of_label "$1")"
+  [ -n "$f" ] || die "cannot find a plist for $1"
+  # Unquoted on purpose: $EDITOR routinely carries arguments ("zed --wait", "code -w"), and
+  # quoting the whole thing would look for a command literally named "zed --wait".
+  # shellcheck disable=SC2086
+  ${EDITOR:-vim} "$f"
+  note "edited — run \`$PROG reload $1\` to make launchd pick it up"
+}
+
+# --- dispatch --------------------------------------------------------------
+
+[ "$(uname -s)" = "Darwin" ] || die "launchd is macOS-only; this host runs $(uname -s)"
+
+cmd="${1:---help}"
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  list)       cmd_list "$@" ;;
+  register)   [ $# -eq 1 ] || die "usage: $PROG register <plist>"; cmd_register "$1" ;;
+  unregister) want_args 1 2 "usage: $PROG unregister <label> [--keep]" "$@"; cmd_unregister "$@" ;;
+  reload)     want_args 1 1 "usage: $PROG reload <label>" "$@"; cmd_reload "$1" ;;
+  start)      want_args 1 1 "usage: $PROG start <label>" "$@"; cmd_start "$1" ;;
+  stop)       want_args 1 1 "usage: $PROG stop <label>" "$@"; cmd_stop "$1" ;;
+  restart)    want_args 1 1 "usage: $PROG restart <label>" "$@"; cmd_restart "$1" ;;
+  enable)     want_args 1 1 "usage: $PROG enable <label>" "$@"; cmd_enable "$1" ;;
+  disable)    want_args 1 1 "usage: $PROG disable <label>" "$@"; cmd_disable "$1" ;;
+  status)     want_args 1 2 "usage: $PROG status <label> [--raw]" "$@"; cmd_status "$@" ;;
+  log)        want_args 1 2 "usage: $PROG log <label> [-f]" "$@"; cmd_log "$@" ;;
+  path)       want_args 1 1 "usage: $PROG path <label>" "$@"; cmd_path "$1" ;;
+  edit)       want_args 1 1 "usage: $PROG edit <label>" "$@"; cmd_edit "$1" ;;
+  -h|--help|help) usage ;;
+  *) die "unknown command: $cmd (see: $PROG --help)" ;;
+esac

@@ -5,12 +5,20 @@
 # config.local, ssh/config.local, etc.
 *.local
 **/config.local
+# `*.local` matches directories too, so it also swallows home/.local — the XDG data/state/bin
+# tree, which is mirror-able config, not a secret. Re-include just that directory; files named
+# foo.local inside it still match the rule above, so the secrets guardrail is untouched.
+!home/.local/
 # SSH keys — never commit, public *.pub included
 id_*
 *.pem
 *.key
 # AWS credentials (the SSO token cache is unmanaged too)
 .aws/credentials
+# Environment files. No `!.env.example` escape hatch on purpose: a negation inside a secrets
+# rule is a hole, and `git add -f` covers the rare file that genuinely wants committing.
+.env
+.env.*
 
 # === Personal / private (local only; keep out of the public repo) ===
 # Personal runbooks/notes; never put actual secrets here. Root-anchored via leading /.
