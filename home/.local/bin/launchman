@@ -181,10 +181,15 @@ plist_of_label() {
   domain_path "$label"
 }
 
-# Exactly one label, no silently ignored extras: a typo'd flag should be an error, not a no-op.
-one_label() {
-  [ $# -eq 1 ] || die "usage: $PROG $cmd <label>"
-  [ -n "$1" ] || die "usage: $PROG $cmd <label>"
+# Arity check for the dispatch table: no silently ignored extras, because a typo'd flag should
+# be an error rather than a no-op. Written as plain `||` tests, never `A && B || C` — shellcheck
+# 0.9 (what Ubuntu ships, so what CI runs) flags that shape as SC2015 while 0.11 does not.
+want_args() {   # min max usage-message -- then the real arguments
+  local min="$1" max="$2" msg="$3"
+  shift 3
+  [ $# -ge "$min" ] || die "$msg"
+  [ $# -le "$max" ] || die "$msg"
+  [ -n "${1:-}" ] || die "$msg"
 }
 
 # --- list ------------------------------------------------------------------
@@ -507,21 +512,17 @@ cmd="${1:---help}"
 case "$cmd" in
   list)       cmd_list "$@" ;;
   register)   [ $# -eq 1 ] || die "usage: $PROG register <plist>"; cmd_register "$1" ;;
-  unregister) [ $# -ge 1 ] && [ -n "${1:-}" ] || die "usage: $PROG unregister <label> [--keep]"
-              [ $# -le 2 ] || die "usage: $PROG unregister <label> [--keep]"
-              cmd_unregister "$@" ;;
-  reload)     one_label "$@"; cmd_reload "$1" ;;
-  start)      one_label "$@"; cmd_start "$1" ;;
-  stop)       one_label "$@"; cmd_stop "$1" ;;
-  restart)    one_label "$@"; cmd_restart "$1" ;;
-  enable)     one_label "$@"; cmd_enable "$1" ;;
-  disable)    one_label "$@"; cmd_disable "$1" ;;
-  status)     [ $# -ge 1 ] && [ $# -le 2 ] && [ -n "${1:-}" ] || die "usage: $PROG status <label> [--raw]"
-              cmd_status "$@" ;;
-  log)        [ $# -ge 1 ] && [ $# -le 2 ] && [ -n "${1:-}" ] || die "usage: $PROG log <label> [-f]"
-              cmd_log "$@" ;;
-  path)       one_label "$@"; cmd_path "$1" ;;
-  edit)       one_label "$@"; cmd_edit "$1" ;;
+  unregister) want_args 1 2 "usage: $PROG unregister <label> [--keep]" "$@"; cmd_unregister "$@" ;;
+  reload)     want_args 1 1 "usage: $PROG reload <label>" "$@"; cmd_reload "$1" ;;
+  start)      want_args 1 1 "usage: $PROG start <label>" "$@"; cmd_start "$1" ;;
+  stop)       want_args 1 1 "usage: $PROG stop <label>" "$@"; cmd_stop "$1" ;;
+  restart)    want_args 1 1 "usage: $PROG restart <label>" "$@"; cmd_restart "$1" ;;
+  enable)     want_args 1 1 "usage: $PROG enable <label>" "$@"; cmd_enable "$1" ;;
+  disable)    want_args 1 1 "usage: $PROG disable <label>" "$@"; cmd_disable "$1" ;;
+  status)     want_args 1 2 "usage: $PROG status <label> [--raw]" "$@"; cmd_status "$@" ;;
+  log)        want_args 1 2 "usage: $PROG log <label> [-f]" "$@"; cmd_log "$@" ;;
+  path)       want_args 1 1 "usage: $PROG path <label>" "$@"; cmd_path "$1" ;;
+  edit)       want_args 1 1 "usage: $PROG edit <label>" "$@"; cmd_edit "$1" ;;
   -h|--help|help) usage ;;
   *) die "unknown command: $cmd (see: $PROG --help)" ;;
 esac
