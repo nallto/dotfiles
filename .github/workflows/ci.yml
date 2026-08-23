@@ -18,8 +18,21 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Install shellcheck + zsh + tmux (apt)
-        run: sudo apt-get update && sudo apt-get install -y shellcheck zsh tmux
+      - name: Install zsh + tmux (apt)
+        run: sudo apt-get update && sudo apt-get install -y zsh tmux
+
+      # NOT apt: Ubuntu ships shellcheck 0.9, which rejects shapes 0.11 accepts, so an
+      # apt install makes CI disagree with a local `make check`. The version comes from
+      # the Makefile so this file cannot drift away from it.
+      - name: Install shellcheck (pinned release binary)
+        run: |
+          set -o pipefail   # without it a 404 from curl is masked by tee's exit 0
+          version="$(make -s shellcheck-version)"
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.gz" \
+            | tar -xz -O -f - "shellcheck-v${version}/shellcheck" \
+            | sudo tee /usr/local/bin/shellcheck > /dev/null
+          sudo chmod +x /usr/local/bin/shellcheck
+          shellcheck --version
 
       - name: Install taplo (pinned release binary)
         env:

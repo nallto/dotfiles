@@ -13,7 +13,8 @@ brew "git-lfs"     # git extension for large files (run `git lfs install` once)
 brew "jq"          # command-line JSON processor
 brew "lazygit"     # terminal UI for git
 brew "sd"          # intuitive find & replace (sed alternative)
-brew "shellcheck"  # shell script static analysis (make lint / CI)
+brew "shellcheck"  # shell script static analysis (make lint / CI). brew cannot pin a version;
+                   # keep it equal to SHELLCHECK_VERSION in the Makefile (make lint warns if not)
 brew "taplo"       # TOML formatter / linter (starship.toml, mise config, ...)
 brew "tealdeer"    # `tldr` client — quick command examples (run `tldr --update`)
 brew "tig"         # text-mode interface for git
