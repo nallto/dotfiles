@@ -90,6 +90,14 @@ taplo = "latest"
 codex = "latest"                   # OpenAI coding agent (Cask on macOS; not in apt -> mise, aqua:openai/codex)
 copilot-cli = "latest"             # GitHub Copilot CLI (Cask on macOS; not in apt -> mise, aqua:github/copilot-cli)
 EOF
+  # Pinned rather than "latest" — the linter's version decides which warnings `make check`
+  # produces, and this machine has to agree with CI. The Makefile holds the one declaration.
+  # (Careful when editing these lines: a comment whose first word is the linter's own name is
+  # read as a directive rather than prose, and fails the lint with SC1072.)
+  # Assigned first on purpose: `printf "$(cmd)"` returns printf's status, so a failing lookup
+  # would write an empty version and sail past `set -e`, leaving this machine with no linter.
+  sc_version="$(make -s shellcheck-version)"
+  printf 'shellcheck = "%s"\n' "$sc_version" >> ~/.config/mise/conf.d/linux.toml
   mise install || true
   mise exec -- corepack enable pnpm 2>/dev/null || true
 

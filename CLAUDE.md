@@ -29,6 +29,12 @@ This file is the single source of truth for these conventions — the ground rul
 - Shared-config CLIs (eza/bat/fd/ripgrep/fzf/delta/starship/zoxide) = **mac: brew / Linux: mise**.
   When adding one, reflect it in **both** the Brewfile and the mise config.
 - One-off CLIs (jq/gh/ghq/vim/tig/cloc, etc.) = **mac: brew / Linux: apt** (mise if apt lacks it).
+- **shellcheck = mac: brew / Linux: mise / CI: pinned release binary** — deliberately *not* apt,
+  whose 0.9 disagrees with brew's 0.11 about which warnings to emit. A verification tool that
+  answers differently per machine makes `make check` a lie, so its version is pinned once in the
+  `Makefile` (`SHELLCHECK_VERSION`) and read back by CI and `bootstrap.sh`. brew can't pin, so
+  `make lint` warns on a mismatch instead of failing. On a Linux box set up before this rule,
+  drop apt's copy once (`sudo apt-get remove shellcheck`) and re-run `./bootstrap.sh`.
 - **The Brewfile is mac-only.** Linux uses apt + mise.
 - **Never run `brew install X` directly** → edit the Brewfile → `brew bundle`.
 

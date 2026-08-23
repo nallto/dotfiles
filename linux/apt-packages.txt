@@ -6,7 +6,6 @@ jq
 vim
 tig
 cloc
-shellcheck
 build-essential
 git-lfs
 btop
