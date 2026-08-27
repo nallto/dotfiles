@@ -13,20 +13,10 @@ node = "lts"
 # Browser terminal grid for running AI coding agents in parallel (tmux-backed).
 # No brew formula/cask, no apt package, not in the mise registry -> npm backend.
 #
-# TEMPORARY trust-policy exclude — remove once cytoscape 3.34.2 is published.
-# cytoscape is transitive (mulmoterminal -> @mulmoclaude/markdown-plugin ->
-# mermaid -> cytoscape "^3.33.3"), and 3.34.1 trips mise's no-downgrade check:
-# 3.33.4/3.34.0 were published by CI with SLSA provenance, 3.34.1 was
-# hand-published by the lead maintainer after their trusted-publishing workflow
-# broke (cytoscape/cytoscape.js#3511, where they confirm 3.34.2 ships the same
-# source through the fixed workflow).
-# Verified by hand before adding this: every file in the cytoscape 3.34.1 npm
-# tarball is byte-identical to git tag v3.34.1 (src/, all five dist/ bundles,
-# package.json); the only extras are three inert untracked JSON files swept in
-# from the maintainer's laptop; and cytoscape declares no install/preinstall/
-# postinstall script (mulmoterminal itself does have one, unrelated to this).
-# The exclude is an exact version, so it stops applying the moment the tree
-# resolves to anything else — nothing here is pinned to 3.34.1.
-"npm:mulmoterminal" = { version = "latest", trust_policy_excludes = [
-  "cytoscape@3.34.1",
-] }
+# allow_low_downloads: the package sits just under aube's lowDownloadThreshold (983
+# weekly downloads vs 1000), so a non-interactive `mise install` aborts on it — and
+# bootstrap's `|| true` would swallow that, leaving the tool silently missing. The
+# gate is typosquat protection, which a name written once in this reviewed, committed
+# file cannot trip. It exempts this package alone: the ~890 transitive dependencies
+# stay gated, as do the provenance (trust policy) and lifecycle-script checks.
+"npm:mulmoterminal" = { version = "latest", allow_low_downloads = true }
