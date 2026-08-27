@@ -1,11 +1,22 @@
-# ~/.config/mise/config.toml — global runtime versions.
-#
-# Committed config holds RUNTIMES only:
+# ~/.config/mise/config.toml — global runtimes + cross-OS CLIs that have no
+# brew/apt home. Hand-written only; bootstrap never mutates this file:
 #   - Python is owned by uv, never mise. Do NOT add `python` here.
 #   - Reference CLIs (eza/bat/fd/ripgrep/fzf/delta/starship/zoxide) are mac=brew /
 #     Linux=mise; on Linux the bootstrap writes them to a machine-local
 #     ~/.config/mise/conf.d/linux.toml (merged by mise), never to this file — so
-#     this committed config stays runtimes-only and is never mutated by bootstrap.
+#     everything here stays hand-written and is never mutated by bootstrap.
 
 [tools]
 node = "lts"
+
+# --- cross-OS CLIs with no brew/apt home (`mise up` to update) ---
+# Browser terminal grid for running AI coding agents in parallel (tmux-backed).
+# No brew formula/cask, no apt package, not in the mise registry -> npm backend.
+#
+# allow_low_downloads: the package sits just under aube's lowDownloadThreshold (983
+# weekly downloads vs 1000), so a non-interactive `mise install` aborts on it — and
+# bootstrap's `|| true` would swallow that, leaving the tool silently missing. The
+# gate is typosquat protection, which a name written once in this reviewed, committed
+# file cannot trip. It exempts this package alone: the ~890 transitive dependencies
+# stay gated, as do the provenance (trust policy) and lifecycle-script checks.
+"npm:mulmoterminal" = { version = "latest", allow_low_downloads = true }

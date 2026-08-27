@@ -37,3 +37,32 @@ if command -v git >/dev/null && command -v fzf >/dev/null; then
     cd "${selection#*$'\t'}"
   }
 fi
+
+# --- MulmoTerminal: which servers are running right now ---------------------
+# Each live server registers itself as ~/.mulmoterminal/instances/<pid>.json
+# ({pid, port, startedAt}) and removes the file on exit. There is no CLI for
+# reading it back, hence this.
+# A crash cannot clean up after itself, so an entry is only a claim — `kill -0`
+# (existence/permission check, delivers no signal) is what confirms it. Stale
+# entries are read past, not pruned; MulmoTerminal drops them itself the next
+# time it reads the directory.
+# The timestamp goes through jq rather than `date` because this repo installs
+# GNU coreutils on macOS, where `date -r` means "reference file" rather than
+# BSD's "seconds since epoch" — the same command would print nothing there.
+if command -v jq >/dev/null; then
+  mulmops() {
+    local dir="$HOME/.mulmoterminal/instances" pid port started found=0
+    if [[ -d $dir ]]; then
+      while IFS=$'\t' read -r pid port started; do
+        kill -0 "$pid" 2>/dev/null || continue
+        printf 'pid=%-7s http://localhost:%-6s up since %s\n' "$pid" "$port" "$started"
+        found=1
+      done < <(
+        find "$dir" -maxdepth 1 -name '*.json' -exec jq -r '
+          "\(.pid)\t\(.port // "?")\t\(.startedAt/1000|localtime|strftime("%Y-%m-%d %H:%M:%S"))"
+        ' {} + 2>/dev/null
+      )
+    fi
+    (( found )) || print "mulmops: no MulmoTerminal server is running"
+  }
+fi
