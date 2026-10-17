@@ -31,6 +31,11 @@ This file is the single source of truth for these conventions — the ground rul
 - One-off CLIs (jq/gh/ghq/vim/tig/cloc, etc.) = **mac: brew / Linux: apt** (mise if apt lacks it).
 - npm-only CLIs (no brew formula/cask, no apt package) = **mise's `npm:` backend**, hand-written in
   the committed `config.toml` — never `npm i -g` (`guards.zsh` blocks it).
+- **aube's supply-chain gates on the `npm:` backend are not noise.** When one stops an install
+  (trust downgrade, low downloads, lifecycle scripts), investigate the package first and record
+  what was found next to the exemption in `config.toml`. Exempt by exact `<package>@<version>`,
+  never by bare name: a bare name waives every future release too, while a version stops the
+  next `mise up` and forces the decision to be made again.
 - **shellcheck = mac: brew / Linux: mise / CI: pinned release binary** — deliberately *not* apt,
   whose 0.9 disagrees with brew's 0.11 about which warnings to emit. A verification tool that
   answers differently per machine makes `make check` a lie, so its version is pinned once in the

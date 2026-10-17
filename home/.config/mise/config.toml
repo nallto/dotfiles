@@ -17,6 +17,27 @@ node = "lts"
 # weekly downloads vs 1000), so a non-interactive `mise install` aborts on it — and
 # bootstrap's `|| true` would swallow that, leaving the tool silently missing. The
 # gate is typosquat protection, which a name written once in this reviewed, committed
-# file cannot trip. It exempts this package alone: the ~890 transitive dependencies
-# stay gated, as do the provenance (trust policy) and lifecycle-script checks.
-"npm:mulmoterminal" = { version = "latest", allow_low_downloads = true }
+# file cannot trip. It exempts this package alone: the ~950 transitive dependencies
+# stay gated, as do the lifecycle-script checks and — apart from the single version
+# named below — the provenance (trust policy) checks.
+#
+# trust_policy_excludes: chromium-bidi arrives transitively, by way of puppeteer and
+# puppeteer-core — both of which pin it to this exact version. Its source was hard-forked
+# into the Chromium tree at 17.0.2 (chromium/src/third_party/chromium-bidi, tracked by
+# crbug.com/551581139), so releases are now cut by Chrome's release automation rather
+# than the GitHub Actions workflow that produced SLSA provenance for 10.4.0..17.x, and
+# aube reads the missing provenance as a trust downgrade.
+#
+# What makes this a process change rather than tampering: the GitHub repo is now a
+# Copybara export of that tree (every commit is committed by copybara-worker@google.com,
+# and the README says to contribute in Chromium instead), the tarball carries no
+# install-time lifecycle scripts at all (the attested 10.6.1 still had `prepare`), its
+# shasum matches the registry metadata, and puppeteer-core 25.14.0 — itself published
+# with provenance — pins this exact version. Provenance is not coming back by this route.
+#
+# Pinned to the version rather than the bare package name on purpose: a bare name exempts
+# every future release, while this stops `mise up` again the next time puppeteer re-pins
+# chromium-bidi — which is when the decision deserves another look.
+"npm:mulmoterminal" = { version = "latest", allow_low_downloads = true, trust_policy_excludes = [
+  "chromium-bidi@157.0.8090-0",
+] }
