@@ -10,14 +10,14 @@ This file is the single source of truth for these conventions — the ground rul
 
 ## Verification (most important)
 - Before any completion report, run `make check` and confirm it is green. Work that isn't green is not "done."
-- `make check` is identical to CI (shellcheck + `taplo fmt --check`/lint + `bash -n`/`zsh -n`).
+- `make check` is identical to CI (shellcheck + `taplo fmt --check`/lint + `bash -n`/`zsh -n` + `ruby -c Brewfile`).
 - See `make help` for the available targets. If shellcheck is missing, install it with `brew bundle`.
 
 ## Absolute rules (violating these breaks the design)
 1. **Never commit secrets.** SSH keys, credentials, and tokens stay out of the dotfiles (public keys too).
    Generate them per-machine and keep the reproduction steps in `local/*-setup.md` (private). `.gitignore` enforces this structurally.
 2. **One home per thing:** one tool = one manager per OS. Never install the same thing from two places.
-3. **The real code is the source of truth for where things live** (`Brewfile` / mise `config.toml` + `conf.d` / `linux/apt-packages.txt`).
+3. **The real code is the source of truth for where things live** (`Brewfile` + the untracked `Brewfile.local` / mise `config.toml` + `conf.d` / `linux/apt-packages.txt`).
    The "homes" section below is a human-readable summary of it; if they disagree, the code wins and the summary gets fixed.
 4. **Secret files (`*.local`, keys) are outside dotman's scope.**
 
@@ -42,7 +42,15 @@ This file is the single source of truth for these conventions — the ground rul
   `Makefile` (`SHELLCHECK_VERSION`) and read back by CI and `bootstrap.sh`. brew can't pin, so
   `make lint` warns on a mismatch instead of failing. On a Linux box set up before this rule,
   drop apt's copy once (`sudo apt-get remove shellcheck`) and re-run `./bootstrap.sh`.
+- **ruby = mac: the system `/usr/bin/ruby` / Linux: apt / CI: the runner image's** — only for
+  `make check`'s `ruby -c Brewfile`, a syntax check that any 2.6+ ruby answers the same way, so
+  no version is pinned. Apple has deprecated its ruby; when it goes, choose a mac home then.
 - **The Brewfile is mac-only.** Linux uses apt + mise.
+- **Personal mac packages = the untracked `Brewfile.local`** (next to `Brewfile`, ignored by `*.local`).
+  Developer tooling and the main apps go in the public `Brewfile`; anything you'd rather not publish
+  goes in `Brewfile.local`. `Brewfile` evaluates it, so `brew bundle` / `check` / `cleanup` see one
+  list — never apply it as a separate file (`cleanup` would treat its packages as stray), and never
+  list a package in both files.
 - **Never run `brew install X` directly** → edit the Brewfile → `brew bundle`.
 
 ## Shell file placement rules

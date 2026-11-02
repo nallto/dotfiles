@@ -1,7 +1,7 @@
 # Static checks — the single source of truth for lint/format/test, run the same
 # way locally (`make check`) and in CI (.github/workflows/ci.yml calls `make check`).
 # Tools: shellcheck (mac=brew / Linux=mise / CI=pinned binary), taplo (mac=brew / Linux=mise),
-# zsh, bash, tmux.
+# zsh, bash, tmux, ruby (Brewfile syntax; mac=system /usr/bin/ruby / Linux=apt / CI=runner image).
 #
 # shellcheck's version decides which warnings fire — 0.9 rejects `A && B || C` as SC2015 where
 # 0.11 stays quiet — so a local run and CI only agree if they run the same one. This file holds
@@ -16,6 +16,7 @@ BASH_FILES  := bootstrap.sh dotman.sh home/.local/bin/launchman
 TOML_FILES  := home/.config/starship.toml home/.config/mise/config.toml
 ZSH_FILES   := home/.zshenv home/.config/zsh/.zshrc home/.config/zsh/.zprofile home/.config/zsh/aliases.zsh home/.config/zsh/functions.zsh home/.config/zsh/guards.zsh
 TMUX_FILES  := home/.config/tmux/tmux.conf
+RUBY_FILES  := Brewfile
 
 .PHONY: help check lint fmt fmt-check test dry-run shellcheck-version
 
@@ -43,7 +44,7 @@ fmt-check: ## verify TOML formatting + lint
 	taplo fmt --check $(TOML_FILES)
 	taplo lint $(TOML_FILES)
 
-test: ## syntax-check shell (bash -n), zsh (zsh -n) and the tmux config
+test: ## syntax-check shell (bash -n), zsh (zsh -n), the tmux config and the Brewfile (ruby -c)
 	@for f in $(BASH_FILES); do echo "bash -n $$f"; bash -n "$$f" || exit 1; done
 	@for f in $(ZSH_FILES);  do echo "zsh -n  $$f"; zsh  -n "$$f" || exit 1; done
 	@# tmux exits 0 even on a broken config, so treat any output as failure:
@@ -51,6 +52,9 @@ test: ## syntax-check shell (bash -n), zsh (zsh -n) and the tmux config
 	@for f in $(TMUX_FILES); do echo "tmux -f $$f"; \
 	  msg=$$(tmux -f /dev/null -L dotfiles-check start-server \; source-file "$$f" \; kill-server 2>&1); \
 	  [ -z "$$msg" ] || { echo "$$msg"; exit 1; }; done
+	@# The Brewfile is Ruby (it evaluates Brewfile.local), and nothing else parses it before
+	@# `brew bundle` does. ruby -c prints "Syntax OK" on success, so keep only failures.
+	@for f in $(RUBY_FILES); do echo "ruby -c  $$f"; ruby -c "$$f" > /dev/null || exit 1; done
 
 dry-run: ## preview dotman placement (no changes)
 	./dotman.sh -i --dry-run

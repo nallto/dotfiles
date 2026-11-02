@@ -1,6 +1,7 @@
 # Brewfile — macOS package manifest. Applied via `brew bundle` (.zprofile points
 # HOMEBREW_BUNDLE_FILE here; bootstrap.sh passes --file explicitly).
 # mac-only: Linux uses apt + mise instead (see linux/apt-packages.txt).
+# Machine-local additions live in an untracked Brewfile.local, evaluated at the end of this file.
 
 # --- base / single-use utilities (mac = brew; Linux = apt) ---
 brew "btop"        # resource / process monitor
@@ -74,3 +75,11 @@ cask "font-moralerspace-hw-jpdoc"  # Moralerspace HW JPDOC — JPDOC variant (JP
 cask "font-udev-gothic"      # UDEV Gothic — JP coding font (JetBrains Mono + BIZ UDGothic)
 cask "font-udev-gothic-hs"   # UDEV Gothic HS variant
 cask "font-udev-gothic-nf"   # UDEV Gothic + Nerd Font glyphs
+
+# --- Machine-local additions (untracked) ---
+# Personal packages that stay out of this public file go in Brewfile.local next to it
+# (ignored by `*.local`). Evaluating it here, rather than applying it as a second file, makes
+# `brew bundle`, `check` and `cleanup` see one combined list; a separate file would be judged
+# stray by `cleanup`. Never list a package in both files (one home per thing).
+local_brewfile = File.expand_path("Brewfile.local", __dir__)
+instance_eval(File.read(local_brewfile), local_brewfile) if File.exist?(local_brewfile)
